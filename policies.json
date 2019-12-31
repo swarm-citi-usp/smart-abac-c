@@ -9,7 +9,13 @@
                 "Led"
             ]
         ],
-        "context_attrs": [],
+        "context_attrs": [
+            [
+                "range",
+                "Hour",
+                {"min": 8.0, "max": 18.0}
+            ]
+        ],
         "operations": [
             "discover"
         ]

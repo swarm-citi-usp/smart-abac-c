@@ -34,7 +34,12 @@ typedef struct policy {
 void print_attr(attr a) {
 	printf("%s ", a.data_type);
 	printf("%s ", a.name);
-	printf("%s", a.str);
+	if (strcmp(a.data_type, "string") == 0)
+		printf("%s", a.str);
+	else if (strcmp(a.data_type, "number") == 0)
+		printf("%.2f", a.num);
+	else if (strcmp(a.data_type, "range") == 0)
+		printf("(%.2f, %.2f)", a.ran.min, a.ran.max);
 }
 
 void print_attrs(attr *attrs, size_t len, char *label) {
@@ -102,11 +107,16 @@ typedef struct req_attr {
 	};
 } req_attr;
 
-void print_req_attr(req_attr a) {
+void print_req_attr(req_attr a, const char *data_type) {
 	printf("%s [", a.name);
 	int i;
-	for (i = 0; i < a.len; i++)
-		printf("%s ", a.strs[i]);
+
+	if (strcmp(data_type, "string") == 0)
+		for (i = 0; i < a.len; i++)
+			printf("%s ", a.strs[i]);
+	else if (strcmp(data_type, "number") == 0 || strcmp(data_type, "range") == 0)
+		printf("%.2f", a.num);
+
 	printf("] ");
 }
 
@@ -137,6 +147,10 @@ struct attr create_attr(json_t *attr_json) {
 	} else if (strcmp(at.data_type, "number") == 0) {
 		at.num = json_real_value(v);
 		//printf("create_attr: %s %s %f\n", at.data_type, at.name, at.num);
+	} else if (strcmp(at.data_type, "range") == 0) {
+		at.ran.min = json_real_value(json_object_get(v, "min"));
+		at.ran.max = json_real_value(json_object_get(v, "max"));
+		//printf("%s %.2f %.2f\n", at.name, at.ran.min, at.ran.max);
 	}
 
 	return at;
@@ -236,7 +250,7 @@ int match_ops(char **req_ops, size_t req_ops_len, const char **p_ops, size_t p_o
 		int ok = 0;
 		for (j = 0; j < p_ops_len; j++) {
 			if (strcmp(req_ops[i], p_ops[j]) == 0) {
-				printf("match: %s %s\n", req_ops[i], p_ops[j]);
+				printf("match: %s = %s\n", req_ops[i], p_ops[j]);
 				ok = 1;
 			}
 		}
@@ -244,6 +258,64 @@ int match_ops(char **req_ops, size_t req_ops_len, const char **p_ops, size_t p_o
 			return 0;
 	}
 	return 1;
+}
+
+int match_attr(req_attr ra, attr pa) {
+	if (strcmp(ra.name, pa.name) != 0)
+		return 0;
+
+	if (strcmp(pa.data_type, "string") == 0) {
+		int i, ok = 0;
+		for (i = 0; i < ra.len; i++) {
+			if (strcmp(ra.strs[i], pa.str) == 0) {
+				return 1;
+			}
+		}
+	} else if (strcmp(pa.data_type, "number") == 0) {
+		return ra.num == pa.num;
+	} else if (strcmp(pa.data_type, "range") == 0) {
+		return pa.ran.min <= ra.num && ra.num <= pa.ran.max;
+	}
+	return 0;
+}
+
+int match_attrs(req_attr *r_attrs, size_t ra_len, attr *p_attrs, size_t pa_len) {
+	if (pa_len == 0)
+		return 1;
+
+	int i, j;
+	for (i = 0; i < ra_len; i++) {
+		int ok = 0;
+		for (j = 0; j < pa_len; j++) {
+			if (match_attr(r_attrs[i], p_attrs[j])) {
+				printf("match: ");
+				print_req_attr(r_attrs[i], p_attrs[j].data_type);
+				printf(" = ");
+				print_attr(p_attrs[j]);
+				printf("\n");
+				ok = 1;
+			}
+		}
+		if (!ok)
+			return 0;
+	}
+	return 1;
+}
+
+int authorize(request req, struct policy *ps, size_t ps_len) {
+	//print_policies(ps, ps_len);
+	int i, j;
+	for (i = 0; i < ps_len; i++) {
+		int ok =
+			match_ops(req.operations, req.operations_len, ps[i].operations, ps[i].operations_len) &&
+			match_attrs(req.user_attrs, req.user_attrs_len, ps[i].user_attrs, ps[i].user_attrs_len) &&
+			match_attrs(req.object_attrs, req.object_attrs_len, ps[i].object_attrs, ps[i].object_attrs_len) &&
+			match_attrs(req.context_attrs, req.context_attrs_len, ps[i].context_attrs, ps[i].context_attrs_len);
+
+		if (ok)
+			return 1;
+	}
+	return 0;
 }
 
 void _test_match_ops() {
@@ -260,42 +332,6 @@ void _test_match_ops() {
 	po[0] = "";
 	if (match_ops(ro, 1, po, 2))
 		printf("fail 2");
-}
-
-int match_attr(req_attr ra, attr pa) {
-	if (strcmp(pa.data_type, "string") == 0 && strcmp(ra.name, pa.name) == 0) {
-		int i, ok = 0;
-		for (i = 0; i < ra.len; i++) {
-			if (strcmp(ra.strs[i], pa.str) == 0) {
-				return 1;
-			}
-		}
-	} else if (strcmp(pa.data_type, "number") == 0) {
-		return ra.num == pa.num;
-	}
-	return 0;
-}
-
-int match_attrs(req_attr *r_attrs, size_t ra_len, attr *p_attrs, size_t pa_len) {
-	if (pa_len == 0)
-		return 1;
-
-	int i, j;
-	for (i = 0; i < ra_len; i++) {
-		int ok = 0;
-		for (j = 0; j < pa_len; j++) {
-			if (match_attr(r_attrs[i], p_attrs[j])) {
-				printf("match: ");
-				print_req_attr(r_attrs[i]);
-				print_attr(p_attrs[j]);
-				printf("\n");
-				ok = 1;
-			}
-		}
-		if (!ok)
-			return 0;
-	}
-	return 1;
 }
 
 void _test_match_attrs() {
@@ -323,24 +359,26 @@ void _test_match_attrs() {
 	if (match_attrs(r_attrs, ra_len, p_attrs, pa_len))
 		printf("fail 2\n");
 
-	if (!match_attrs(r_attrs, 0, p_attrs, pa_len))
+	if (!match_attrs(r_attrs, 0, p_attrs, pa_len)) // no request attrs
 		printf("fail 3\n");
-}
 
-int authorize(request req, struct policy *ps, size_t ps_len) {
-	//print_policies(ps, ps_len);
-	int i, j;
-	for (i = 0; i < ps_len; i++) {
-		int ok =
-			match_ops(req.operations, req.operations_len, ps[i].operations, ps[i].operations_len) &&
-			match_attrs(req.user_attrs, req.user_attrs_len, ps[i].user_attrs, ps[i].user_attrs_len) &&
-			match_attrs(req.object_attrs, req.object_attrs_len, ps[i].object_attrs, ps[i].object_attrs_len) &&
-			match_attrs(req.context_attrs, req.context_attrs_len, ps[i].context_attrs, ps[i].context_attrs_len);
+	r_attrs[0].name = "Day";
+	r_attrs[0].num = 30.0;
 
-		if (ok)
-			return 1;
-	}
-	return 0;
+	p_attrs[1].data_type = "number";
+	p_attrs[1].name = "Day";
+	p_attrs[1].num = 30.0;
+
+	if (!match_attrs(r_attrs, ra_len, p_attrs, pa_len))
+		printf("fail 4\n");
+
+	p_attrs[1].data_type = "range";
+	p_attrs[1].name = "Day";
+	p_attrs[1].ran.min = 25.0;
+	p_attrs[1].ran.max = 31.0;
+
+	if (!match_attrs(r_attrs, ra_len, p_attrs, pa_len))
+		printf("fail 5\n");
 }
 
 void _test_authorize() {
@@ -370,15 +408,15 @@ void _test_authorize() {
 		printf("fail 2\n");
 }
 
-int main() {
-	if (1) {
-		// _test_create_policies();
-		// _test_match_ops();
-		// _test_match_attrs();
-		_test_authorize();
-		return 0;
-	}
+void _test() {
+	// _test_create_policies();
+	// _test_match_ops();
+	_test_match_attrs();
+	_test_authorize();
+}
 
+int main() {
+	_test();
 
 	return 0;
 }
