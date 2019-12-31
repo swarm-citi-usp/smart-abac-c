@@ -5,14 +5,13 @@
         "object_attrs": [
             [
                 "string",
-                "swarm:ServiceType",
-                "swarm:Led"
+                "ServiceType",
+                "Led"
             ]
         ],
         "context_attrs": [],
         "operations": [
             "discover"
-        ],
-        "id": "bc11c9d5-24b8-4b47-b9b3-869ef1087a44"
+        ]
     }
 ]
