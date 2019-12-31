@@ -3,6 +3,8 @@
 #include <string.h>
 #include <jansson.h>
 
+// Structs
+
 struct range {
 	float min;
 	float max;
@@ -44,12 +46,14 @@ struct request {
 	const char **operations;
 } request;
 
+// helper functions
+
 struct attr *create_attr(json_t *attr_json) {
 	json_t *t = json_array_get(attr_json, 0);
 	json_t *n = json_array_get(attr_json, 1);
 	json_t *v = json_array_get(attr_json, 2);
 
-	struct attr *at = malloc(sizeof(attr));
+	struct attr *at = malloc(sizeof(struct attr *));
 	at->data_type = json_string_value(t);
 	at->name = json_string_value(n);
 	if (strcmp(at->data_type, "string") == 0) {
@@ -65,7 +69,7 @@ struct attr *create_attr(json_t *attr_json) {
 
 struct attr **create_attrs(json_t *attrs_json) {
 	int j;
-	struct attr **attrs = malloc(sizeof(attr) * json_array_size(attrs_json));
+	struct attr **attrs = malloc(sizeof(struct attr *) * json_array_size(attrs_json));
 	for (j = 0; j < json_array_size(attrs_json); j++) {
 		json_t *attr_json = json_array_get(attrs_json, j);
 		attrs[j] = create_attr(attr_json);
@@ -117,7 +121,7 @@ json_t *convert_to_json(char *policies_buf) {
 
 struct policy ***create_policies(json_t *root, size_t policies_len) {
 	int i, j;
-	struct policy ***policies = malloc(sizeof(policy) * policies_len);
+	struct policy ***policies = malloc(sizeof(struct policy *) * policies_len);
 	for (i = 0; i < json_array_size(root); i++) {
 		json_t *policy_json, *object_attrs_json;
 		policy_json = json_array_get(root, i);
@@ -146,6 +150,8 @@ struct policy ***create_policies(json_t *root, size_t policies_len) {
 	return policies;
 }
 
+// PDP functions
+
 int authorize(struct request *req, struct policy ***policies, size_t policies_len) {
 	printf("%s\n", req->object_attrs[0]->name);
 	//printf("%s\n", (*policies[0])->object_attrs[0]->data_type);
@@ -161,8 +167,8 @@ int main() {
 	size_t policies_len = json_array_size(root);
 	struct policy ***policies = create_policies(root, policies_len);
 
-	struct request *areq = malloc(sizeof(request));
-	areq->object_attrs = malloc(sizeof(req_attr) * 1);
+	struct request *areq = malloc(sizeof(struct request *));
+	areq->object_attrs = malloc(sizeof(struct req_attr *) * 1);
 	areq->object_attrs[0]->name = "ServiceType";
 	areq->object_attrs[0]->str = "Led";
 	areq->operations = malloc(sizeof(char *) * 1);
