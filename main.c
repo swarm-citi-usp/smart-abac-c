@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <jansson.h>
 
@@ -30,6 +29,28 @@ typedef struct policy {
 	size_t context_attrs_len;
 	size_t operations_len;
 } policy;
+
+typedef struct req_attr {
+	char *name;
+	size_t len;
+	union {
+		char **strs;
+		float num;
+	};
+} req_attr;
+
+typedef struct request {
+	struct req_attr *user_attrs;
+	struct req_attr *object_attrs;
+	struct req_attr *context_attrs;
+	char **operations;
+	size_t user_attrs_len;
+	size_t object_attrs_len;
+	size_t context_attrs_len;
+	size_t operations_len;
+} request;
+
+// helper functions
 
 void print_attr(attr a) {
 	printf("%s ", a.data_type);
@@ -64,49 +85,6 @@ void print_policies(policy *ps, size_t ps_len) {
 	}
 }
 
-void _test_create_policies() {
-	attr at;
-	at.data_type = malloc(sizeof(char) * 7);
-	at.data_type = "string\0";
-	at.name = malloc(sizeof(char) * 8);
-	at.name = "Service\0";
-	at.str = malloc(sizeof(char) * 7);
-	at.str = "Camera\0";
-
-	policy p;
-	p.user_attrs_len = 1;
-	p.user_attrs = malloc(sizeof(attr) * p.user_attrs_len);
-	p.user_attrs[0] = at;
-	p.object_attrs_len = 1;
-	p.object_attrs = malloc(sizeof(attr) * 1);
-	p.object_attrs[0] = at;
-	p.context_attrs_len = 1;
-	p.context_attrs = malloc(sizeof(attr) * p.context_attrs_len);
-	p.context_attrs[0] = at;
-	p.operations_len = 1;
-	p.operations = malloc(sizeof(char *) * p.operations_len);
-	p.operations[0] = malloc(sizeof(char) * 8);
-	p.operations[0] = "discover\0";
-
-	int ps_len = 2, i, j;
-	policy *ps = malloc(sizeof(policy) * ps_len);
-	ps[0] = p;
-	ps[1] = p;
-
-	print_policies(ps, ps_len);
-
-	printf("test ok\n");
-}
-
-typedef struct req_attr {
-	char *name;
-	size_t len;
-	union {
-		char **strs;
-		float num;
-	};
-} req_attr;
-
 void print_req_attr(req_attr a, const char *data_type) {
 	printf("%s [", a.name);
 	int i;
@@ -120,18 +98,7 @@ void print_req_attr(req_attr a, const char *data_type) {
 	printf("] ");
 }
 
-typedef struct request {
-	struct req_attr *user_attrs;
-	struct req_attr *object_attrs;
-	struct req_attr *context_attrs;
-	char **operations;
-	size_t user_attrs_len;
-	size_t object_attrs_len;
-	size_t context_attrs_len;
-	size_t operations_len;
-} request;
-
-// helper functions
+// json loading functions
 
 struct attr create_attr(json_t *attr_json) {
 	json_t *t = json_array_get(attr_json, 0);
@@ -316,6 +283,42 @@ int authorize(request req, struct policy *ps, size_t ps_len) {
 			return 1;
 	}
 	return 0;
+}
+
+// unit tests
+
+void _test_create_policies() {
+	attr at;
+	at.data_type = malloc(sizeof(char) * 7);
+	at.data_type = "string\0";
+	at.name = malloc(sizeof(char) * 8);
+	at.name = "Service\0";
+	at.str = malloc(sizeof(char) * 7);
+	at.str = "Camera\0";
+
+	policy p;
+	p.user_attrs_len = 1;
+	p.user_attrs = malloc(sizeof(attr) * p.user_attrs_len);
+	p.user_attrs[0] = at;
+	p.object_attrs_len = 1;
+	p.object_attrs = malloc(sizeof(attr) * 1);
+	p.object_attrs[0] = at;
+	p.context_attrs_len = 1;
+	p.context_attrs = malloc(sizeof(attr) * p.context_attrs_len);
+	p.context_attrs[0] = at;
+	p.operations_len = 1;
+	p.operations = malloc(sizeof(char *) * p.operations_len);
+	p.operations[0] = malloc(sizeof(char) * 8);
+	p.operations[0] = "discover\0";
+
+	int ps_len = 2, i, j;
+	policy *ps = malloc(sizeof(policy) * ps_len);
+	ps[0] = p;
+	ps[1] = p;
+
+	print_policies(ps, ps_len);
+
+	printf("test ok\n");
 }
 
 void _test_match_ops() {
