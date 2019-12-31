@@ -18,9 +18,9 @@ struct attr {
 } attr;
 
 struct policy {
-	struct attr user_attrs;
-	struct attr object_attrs;
-	struct attr context_attrs;
+	struct attr **user_attrs;
+	struct attr **object_attrs;
+	struct attr **context_attrs;
 	char **operations;
 } policy;
 
@@ -57,7 +57,7 @@ struct attr **create_attrs(json_t *attrs_json) {
 
 int main() {
 	FILE *f = fopen("policies.json", "rb");
-	char *policies = 0;
+	char *policies_buf = 0;
 	long length;
 
 
@@ -68,18 +68,18 @@ int main() {
 	fseek(f, 0, SEEK_END);
 	length = ftell(f);
 	fseek(f, 0, SEEK_SET);
-	policies = malloc(length);
-	if (policies)
-		fread(policies, 1, length, f);
+	policies_buf = malloc(length);
+	if (policies_buf)
+		fread(policies_buf, 1, length, f);
 	fclose(f);
-	printf("%s\n", policies);
+	printf("%s\n", policies_buf);
 
 
 	json_t *root;
 	json_error_t error;
 	int i, j;
 
-	root = json_loads(policies, 0, &error);
+	root = json_loads(policies_buf, 0, &error);
 
 	if (!root) {
 		fprintf(stderr, "error: root error\n");
@@ -91,6 +91,7 @@ int main() {
 		return 1;
 	}
 
+	struct policy ***policies = malloc(sizeof(policy) * json_array_size(root));
 	for (i = 0; i < json_array_size(root); i++) {
 		json_t *policy_json, *object_attrs_json;
 		policy_json = json_array_get(root, i);
@@ -99,7 +100,10 @@ int main() {
 		struct attr **object_attrs = create_attrs(json_object_get(policy_json, "object_attrs"));
 		struct attr **context_attrs = create_attrs(json_object_get(policy_json, "context_attrs"));
 		printf("%s\n", object_attrs[0]->data_type);
+
+		(*policies[i])->object_attrs = object_attrs;
 	}
+	printf("%s\n", (*policies[0])->object_attrs[0]->data_type);
 
 	return 0;
 }
