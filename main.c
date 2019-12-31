@@ -14,31 +14,50 @@ struct attr {
 	union {
 		const char *str;
 		float num;
+		struct range ran;
 	};
 } attr;
 
 struct policy {
+	const char **operations;
 	struct attr **user_attrs;
 	struct attr **object_attrs;
 	struct attr **context_attrs;
-	const char **operations;
+	size_t user_attrs_len;
+	size_t object_attrs_len;
+	size_t context_attrs_len;
+	size_t operations_len; // FIXME: segfault happens when there's a 4th size_t field
 } policy;
+
+struct req_attr {
+	char *name;
+	union {
+		char *str;
+		float num;
+	};
+} req_attr;
+
+struct request {
+	struct req_attr **user_attrs;
+	struct req_attr **object_attrs;
+	struct req_attr **context_attrs;
+	const char **operations;
+} request;
 
 struct attr *create_attr(json_t *attr_json) {
 	json_t *t = json_array_get(attr_json, 0);
 	json_t *n = json_array_get(attr_json, 1);
 	json_t *v = json_array_get(attr_json, 2);
-	printf("%s %s %s\n", json_string_value(t), json_string_value(n), json_string_value(v));
 
 	struct attr *at = malloc(sizeof(attr));
 	at->data_type = json_string_value(t);
 	at->name = json_string_value(n);
 	if (strcmp(at->data_type, "string") == 0) {
 		at->str = json_string_value(v);
-		printf("%s %s %s\n", at->data_type, at->name, at->str);
+		printf("create_attr: %s %s %s\n", at->data_type, at->name, at->str);
 	} else if (strcmp(at->data_type, "number") == 0) {
 		at->num = json_real_value(v);
-		printf("%s %s %f\n", at->data_type, at->name, at->num);
+		printf("create_attr: %s %s %f\n", at->data_type, at->name, at->num);
 	}
 
 	return at;
@@ -72,7 +91,7 @@ char *load_policies() {
 	if (policies_buf)
 		fread(policies_buf, 1, length, f);
 	fclose(f);
-	printf("%s\n", policies_buf);
+	printf("load_policies: %s\n", policies_buf);
 
 	return policies_buf;
 }
@@ -96,9 +115,9 @@ json_t *convert_to_json(char *policies_buf) {
 	return root;
 }
 
-struct policy ***create_policies(json_t *root) {
+struct policy ***create_policies(json_t *root, size_t policies_len) {
 	int i, j;
-	struct policy ***policies = malloc(sizeof(policy) * json_array_size(root));
+	struct policy ***policies = malloc(sizeof(policy) * policies_len);
 	for (i = 0; i < json_array_size(root); i++) {
 		json_t *policy_json, *object_attrs_json;
 		policy_json = json_array_get(root, i);
@@ -106,7 +125,7 @@ struct policy ***create_policies(json_t *root) {
 		struct attr **user_attrs = create_attrs(json_object_get(policy_json, "user_attrs"));
 		struct attr **object_attrs = create_attrs(json_object_get(policy_json, "object_attrs"));
 		struct attr **context_attrs = create_attrs(json_object_get(policy_json, "context_attrs"));
-		printf("%s\n", object_attrs[0]->data_type);
+		printf("create_policies: %s\n", object_attrs[0]->data_type);
 
 		json_t *operations_json = json_object_get(policy_json, "operations");
 		const char **operations = malloc(sizeof(const char *) * json_array_size(operations_json));
@@ -115,21 +134,45 @@ struct policy ***create_policies(json_t *root) {
 			operations[j] = json_string_value(operation_json);
 		}
 
+		// FIXME: segfault happens here
 		(*policies[i])->user_attrs = user_attrs;
 		(*policies[i])->object_attrs = object_attrs;
 		(*policies[i])->context_attrs = context_attrs;
 		(*policies[i])->operations = operations;
 	}
-	printf("%s\n", (*policies[0])->object_attrs[0]->data_type);
-	printf("%s\n", (*policies[0])->operations[0]);
+	printf("create_policies: %s\n", (*policies[0])->operations[0]);
+	printf("create_policies: %s\n", (*policies[0])->object_attrs[0]->data_type);
 
 	return policies;
+}
+
+int authorize(struct request *req, struct policy ***policies, size_t policies_len) {
+	printf("%s\n", req->object_attrs[0]->name);
+	//printf("%s\n", (*policies[0])->object_attrs[0]->data_type);
+	int i, j;
+	for (i = 0; i < policies_len; i++) {
+	}
+	return 1;
 }
 
 int main() {
 	char *policies_buf = load_policies();
 	json_t *root = convert_to_json(policies_buf);
-	struct policy ***policies = create_policies(root);
+	size_t policies_len = json_array_size(root);
+	struct policy ***policies = create_policies(root, policies_len);
+
+	struct request *areq = malloc(sizeof(request));
+	areq->object_attrs = malloc(sizeof(req_attr) * 1);
+	areq->object_attrs[0]->name = "ServiceType";
+	areq->object_attrs[0]->str = "Led";
+	areq->operations = malloc(sizeof(char *) * 1);
+	areq->operations[0] = "discover";
+
+	if (authorize(areq, policies, policies_len))
+		printf("allowed\n");
+	else
+		printf("denied\n");
 
 	return 0;
 }
+
