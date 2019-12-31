@@ -21,7 +21,7 @@ struct policy {
 	struct attr **user_attrs;
 	struct attr **object_attrs;
 	struct attr **context_attrs;
-	char **operations;
+	const char **operations;
 } policy;
 
 struct attr *create_attr(json_t *attr_json) {
@@ -101,9 +101,20 @@ int main() {
 		struct attr **context_attrs = create_attrs(json_object_get(policy_json, "context_attrs"));
 		printf("%s\n", object_attrs[0]->data_type);
 
+		json_t *operations_json = json_object_get(policy_json, "operations");
+		const char **operations = malloc(sizeof(const char *) * json_array_size(operations_json));
+		for (j = 0; j < json_array_size(operations_json); j++) {
+			json_t *operation_json = json_array_get(operations_json, j);
+			operations[j] = json_string_value(operation_json);
+		}
+
+		(*policies[i])->user_attrs = user_attrs;
 		(*policies[i])->object_attrs = object_attrs;
+		(*policies[i])->context_attrs = context_attrs;
+		(*policies[i])->operations = operations;
 	}
 	printf("%s\n", (*policies[0])->object_attrs[0]->data_type);
+	printf("%s\n", (*policies[0])->operations[0]);
 
 	return 0;
 }
