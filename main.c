@@ -55,7 +55,7 @@ struct attr **create_attrs(json_t *attrs_json) {
 	return attrs;
 }
 
-int main() {
+char *load_policies() {
 	FILE *f = fopen("policies.json", "rb");
 	char *policies_buf = 0;
 	long length;
@@ -63,7 +63,7 @@ int main() {
 
 	if (!f) {
 		fprintf(stderr, "error: could not open file");
-		return 1;
+		exit(1);
 	}
 	fseek(f, 0, SEEK_END);
 	length = ftell(f);
@@ -74,23 +74,30 @@ int main() {
 	fclose(f);
 	printf("%s\n", policies_buf);
 
+	return policies_buf;
+}
 
+json_t *convert_to_json(char *policies_buf) {
 	json_t *root;
 	json_error_t error;
-	int i, j;
 
 	root = json_loads(policies_buf, 0, &error);
 
 	if (!root) {
 		fprintf(stderr, "error: root error\n");
-		return 1;
+		exit(1);
 	}
 
 	if (!json_is_array(root)) {
 		fprintf(stderr, "error: root should be array\n");
-		return 1;
+		exit(1);
 	}
 
+	return root;
+}
+
+struct policy ***create_policies(json_t *root) {
+	int i, j;
 	struct policy ***policies = malloc(sizeof(policy) * json_array_size(root));
 	for (i = 0; i < json_array_size(root); i++) {
 		json_t *policy_json, *object_attrs_json;
@@ -115,6 +122,14 @@ int main() {
 	}
 	printf("%s\n", (*policies[0])->object_attrs[0]->data_type);
 	printf("%s\n", (*policies[0])->operations[0]);
+
+	return policies;
+}
+
+int main() {
+	char *policies_buf = load_policies();
+	json_t *root = convert_to_json(policies_buf);
+	struct policy ***policies = create_policies(root);
 
 	return 0;
 }
