@@ -28,7 +28,7 @@ typedef struct policy {
 	size_t user_attrs_len;
 	size_t object_attrs_len;
 	size_t context_attrs_len;
-	size_t operations_len; // FIXME: segfault happens when there's a 4th size_t field
+	size_t operations_len;
 } policy;
 
 void print_attrs(attr *attrs, size_t len, char *label) {
@@ -54,7 +54,7 @@ void print_policies(policy *ps, size_t ps_len) {
 	}
 }
 
-void test_create_policies() {
+void _test_create_policies() {
 	attr at;
 	at.data_type = malloc(sizeof(char) * 7);
 	at.data_type = "string\0";
@@ -90,17 +90,22 @@ void test_create_policies() {
 
 typedef struct req_attr {
 	char *name;
+	size_t len;
 	union {
-		char *str;
+		char **strs;
 		float num;
 	};
 } req_attr;
 
 typedef struct request {
-	struct req_attr **user_attrs;
-	struct req_attr **object_attrs;
-	struct req_attr **context_attrs;
-	const char **operations;
+	struct req_attr *user_attrs;
+	struct req_attr *object_attrs;
+	struct req_attr *context_attrs;
+	char **operations;
+	size_t user_attrs_len;
+	size_t object_attrs_len;
+	size_t context_attrs_len;
+	size_t operations_len;
 } request;
 
 // helper functions
@@ -211,17 +216,64 @@ struct policy *create_policies(json_t *root, size_t policies_len) {
 
 // PDP functions
 
-int authorize(struct request req, struct policy *ps, size_t ps_len) {
-	printf("authorize: %s\n", req.object_attrs[0]->name);
-	print_policies(ps, ps_len);
+// req_ops \in p_ops
+int match_ops(char **req_ops, size_t req_ops_len, const char **p_ops, size_t p_ops_len) {
 	int i, j;
-	for (i = 0; i < ps_len; i++) {
+	for (i = 0; i < req_ops_len; i++) {
+		int ok = 0;
+		for (j = 0; j < p_ops_len; j++) {
+			if (strcmp(req_ops[i], p_ops[j]) == 0) {
+				printf("eq: %s %s\n", req_ops[i], p_ops[j]);
+				ok = 1;
+			}
+		}
+		if (!ok)
+			return 0;
 	}
 	return 1;
 }
 
+void _test_match_ops() {
+	char **ro = malloc(sizeof(char *) * 1);
+	ro[0] = "read";
+
+	const char **po = malloc(sizeof(char *) * 2);
+	po[0] = "read";
+	po[1] = "update";
+
+	if (!match_ops(ro, 1, po, 2))
+		printf("fail 1");
+
+	po[0] = "";
+	if (match_ops(ro, 1, po, 2))
+		printf("fail 2");
+}
+
+int match_attrs(req_attr *req_attrs, attr *p_attrs) {
+	return 1;
+}
+
+int authorize(request req, struct policy *ps, size_t ps_len) {
+	printf("authorize: %s\n", req.object_attrs[0].name);
+	print_policies(ps, ps_len);
+	int i, j;
+	for (i = 0; i < ps_len; i++) {
+		int ok =
+			match_ops(req.operations, req.operations_len, ps[i].operations, ps[i].operations_len) &&
+			match_attrs(req.user_attrs, ps[i].user_attrs) &&
+			match_attrs(req.user_attrs, ps[i].user_attrs) &&
+			match_attrs(req.user_attrs, ps[i].user_attrs);
+
+		if (ok)
+			return 1;
+	}
+	return 0;
+}
+
 int main() {
-	// test_create_policies();
+	// _test_create_policies();
+	// _test_match_ops();
+	// return 0;
 
 	char *policies_buf = load_policies();
 	json_t *root = convert_to_json(policies_buf);
@@ -230,9 +282,12 @@ int main() {
 
 	struct request areq;
 	areq.object_attrs = malloc(sizeof(struct req_attr *) * 1);
-	areq.object_attrs[0]->name = "ServiceType";
-	areq.object_attrs[0]->str = "Led";
-	areq.operations = malloc(sizeof(char *) * 1);
+	areq.object_attrs[0].name = "ServiceType";
+	areq.object_attrs[0].len = 1;
+	areq.object_attrs[0].strs = malloc(sizeof(char *) * areq.object_attrs[0].len);
+	areq.object_attrs[0].strs[0] = "Led";
+	areq.operations_len = 1;
+	areq.operations = malloc(sizeof(char *) * areq.operations_len);
 	areq.operations[0] = "discover";
 
 	if (authorize(areq, policies, ps_len))
