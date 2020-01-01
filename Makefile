@@ -1,14 +1,22 @@
+main_src = $(filter-out tests.c, $(wildcard *.c))
+test_src = $(filter-out main.c, $(wildcard *.c))
+main_obj = $(main_src:.c=.o)
+test_obj = $(test_src:.c=.o)
 
-main: clean
-	cc -g -o main main.c abac_them.h abac_them.c pdp.h util.h -ljansson
+LDFLAGS = -ljansson
 
-run: main
-	./main
+main: $(main_obj)
+	$(CC) -o $@ $^ $(LDFLAGS)
 
-test: clean
-	cc -g -o tests tests.c abac_them.h abac_them.c pdp.h util.h -ljansson && ./tests
+test: $(test_obj)
+	$(CC) -o $@ $^ $(LDFLAGS) && ./test
 
+.PHONY: clean
 clean:
-	rm -f *.o
-	rm -f main
+	rm -f $(main_obj) main
+	rm -f $(test_obj) test
+
+
+run: clean main
+	./main
 
