@@ -6,7 +6,8 @@
 
 // unit tests
 
-void _test_create_policies() {
+void _test_create_policies()
+{
 	attr at;
 	at.data_type = malloc(sizeof(char) * 7);
 	at.data_type = "string\0";
@@ -40,7 +41,8 @@ void _test_create_policies() {
 	//printf("test ok\n");
 }
 
-void _test_match_ops() {
+void _test_match_ops()
+{
 	char **ro = malloc(sizeof(char *) * 1);
 	ro[0] = "read";
 
@@ -56,7 +58,8 @@ void _test_match_ops() {
 		printf(">>>> fail 2");
 }
 
-void _test_match_attrs() {
+void _test_match_attrs()
+{
 	size_t ra_len = 1;
 	req_attr *r_attrs = malloc(sizeof(req_attr) * ra_len);
 	r_attrs[0].name = "Service";
@@ -103,8 +106,9 @@ void _test_match_attrs() {
 		printf(">>>> fail 5\n");
 }
 
-void _test_authorize() {
-	char *policies_buf = load_policies();
+void _test_authorize()
+{
+	char *policies_buf = read_policies("policies.json");
 	json_t *root = convert_to_json(policies_buf);
 	size_t ps_len = json_array_size(root);
 	struct policy *policies = create_policies(root, ps_len);
@@ -130,7 +134,8 @@ void _test_authorize() {
 		printf(">>>> fail 2\n");
 }
 
-int main() {
+int main()
+{
 	_test_create_policies();
 	_test_match_ops();
 	_test_match_attrs();

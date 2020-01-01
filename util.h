@@ -6,11 +6,10 @@
 #include <jansson.h>
 #include "pdp.h"
 
-// helper functions
-
 // print, debug
 
-void print_attr(attr a) {
+void print_attr(attr a)
+{
 	printf("%s ", a.data_type);
 	printf("%s ", a.name);
 	if (strcmp(a.data_type, "string") == 0)
@@ -21,7 +20,8 @@ void print_attr(attr a) {
 		printf("(%.2f, %.2f)", a.ran.min, a.ran.max);
 }
 
-void print_attrs(attr *attrs, size_t len, char *label) {
+void print_attrs(attr *attrs, size_t len, char *label)
+{
 	int j;
 	printf("%s: ", label);
 	for (j = 0; j < len; j++) {
@@ -30,8 +30,10 @@ void print_attrs(attr *attrs, size_t len, char *label) {
 	printf(" | \n");
 }
 
-void print_policies(policy *ps, size_t ps_len) {
+void print_policies(policy *ps, size_t ps_len)
+{
 	int i, j;
+	printf("\nPolicies:\n");
 	for (i = 0; i < ps_len; i++) {
 		print_attrs(ps[i].user_attrs, ps[i].user_attrs_len, "u\0");
 		print_attrs(ps[i].object_attrs, ps[i].object_attrs_len, "o\0");
@@ -43,7 +45,8 @@ void print_policies(policy *ps, size_t ps_len) {
 	}
 }
 
-void print_req_attr(req_attr a, const char *data_type) {
+void print_req_attr(req_attr a, const char *data_type)
+{
 	printf("%s [", a.name);
 	int i;
 
@@ -56,9 +59,61 @@ void print_req_attr(req_attr a, const char *data_type) {
 	printf("] ");
 }
 
-// json loading functions
+void print_request(request r)
+{
+	printf("\nRequest:\n");
+	// TODO: the 'polymorphism' with the union and lack of data type in req_attr is
+	// a problem, as there is no way to known the type of the data in the req_attr
+	printf("\n====\n");
+}
 
-struct attr create_attr(json_t *attr_json) {
+// file loading and json parsing functions
+
+char *read_policies(char *filename)
+{
+	FILE *f = fopen(filename, "rb");
+	char *policies_buf = 0;
+	long length;
+
+
+	if (!f) {
+		fprintf(stderr, "error: could not open file\n");
+		exit(1);
+	}
+	fseek(f, 0, SEEK_END);
+	length = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	policies_buf = malloc(length);
+	if (policies_buf)
+		fread(policies_buf, 1, length, f);
+	fclose(f);
+	//printf("read_policies: %s\n", policies_buf);
+
+	return policies_buf;
+}
+
+json_t *convert_to_json(char *policies_buf)
+{
+	json_t *root;
+	json_error_t error;
+
+	root = json_loads(policies_buf, 0, &error);
+
+	if (!root) {
+		fprintf(stderr, "error: root error\n");
+		exit(1);
+	}
+
+	if (!json_is_array(root)) {
+		fprintf(stderr, "error: root should be array\n");
+		exit(1);
+	}
+
+	return root;
+}
+
+struct attr create_attr(json_t *attr_json)
+{
 	json_t *t = json_array_get(attr_json, 0);
 	json_t *n = json_array_get(attr_json, 1);
 	json_t *v = json_array_get(attr_json, 2);
@@ -81,7 +136,8 @@ struct attr create_attr(json_t *attr_json) {
 	return at;
 }
 
-struct attr *create_attrs(json_t *attrs_json) {
+struct attr *create_attrs(json_t *attrs_json)
+{
 	int j;
 	struct attr *attrs = malloc(sizeof(struct attr) * json_array_size(attrs_json));
 	for (j = 0; j < json_array_size(attrs_json); j++) {
@@ -92,48 +148,8 @@ struct attr *create_attrs(json_t *attrs_json) {
 	return attrs;
 }
 
-char *load_policies() {
-	FILE *f = fopen("policies.json", "rb");
-	char *policies_buf = 0;
-	long length;
-
-
-	if (!f) {
-		fprintf(stderr, "error: could not open file");
-		exit(1);
-	}
-	fseek(f, 0, SEEK_END);
-	length = ftell(f);
-	fseek(f, 0, SEEK_SET);
-	policies_buf = malloc(length);
-	if (policies_buf)
-		fread(policies_buf, 1, length, f);
-	fclose(f);
-	//printf("load_policies: %s\n", policies_buf);
-
-	return policies_buf;
-}
-
-json_t *convert_to_json(char *policies_buf) {
-	json_t *root;
-	json_error_t error;
-
-	root = json_loads(policies_buf, 0, &error);
-
-	if (!root) {
-		fprintf(stderr, "error: root error\n");
-		exit(1);
-	}
-
-	if (!json_is_array(root)) {
-		fprintf(stderr, "error: root should be array\n");
-		exit(1);
-	}
-
-	return root;
-}
-
-struct policy *create_policies(json_t *root, size_t policies_len) {
+struct policy *create_policies(json_t *root, size_t policies_len)
+{
 	int i, j;
 	struct policy *policies = malloc(sizeof(struct policy) * policies_len);
 	for (i = 0; i < json_array_size(root); i++) {
@@ -164,6 +180,14 @@ struct policy *create_policies(json_t *root, size_t policies_len) {
 	//printf("create_policies: %s\n", policies[0].object_attrs[0].data_type);
 
 	return policies;
+}
+
+policy *load_policies(char *filename, size_t *ps_len)
+{
+	char *policies_buf = read_policies(filename);
+	json_t *root = convert_to_json(policies_buf);
+	*ps_len = json_array_size(root);
+	return create_policies(root, *ps_len);
 }
 
 #endif
