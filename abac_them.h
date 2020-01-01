@@ -1,8 +1,6 @@
 #ifndef ABAC_THEM_H
 #define ABAC_THEM_H
 
-#include <stdlib.h>
-
 struct range {
 	float min;
 	float max;
@@ -48,6 +46,11 @@ typedef struct request {
 	size_t context_attrs_len;
 	size_t operations_len;
 } request;
+
+int match_ops(char **req_ops, size_t req_ops_len, const char **p_ops, size_t p_ops_len);
+int match_attr(req_attr ra, attr pa);
+int match_attrs(req_attr *r_attrs, size_t ra_len, attr *p_attrs, size_t pa_len);
+int authorize(request req, struct policy *ps, size_t ps_len);
 
 request new_request(size_t ua_len, size_t oa_len, size_t ca_len, size_t op_len);
 req_attr new_attr_str(char *name, char *value);

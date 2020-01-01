@@ -1,3 +1,4 @@
 *.swp
 main
 tests
+*.o
