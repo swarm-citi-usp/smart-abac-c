@@ -115,8 +115,14 @@ json_t *convert_to_json(char *policies_buf)
 struct attr create_attr(json_t *attr_json)
 {
 	json_t *t = json_array_get(attr_json, 0);
+	if (!t) // supporting different serialization format in which fields are named
+		t = json_object_get(attr_json, "data_type");
 	json_t *n = json_array_get(attr_json, 1);
+	if (!n)
+		n = json_object_get(attr_json, "name");
 	json_t *v = json_array_get(attr_json, 2);
+	if (!v)
+		v = json_object_get(attr_json, "value");
 
 	struct attr at;
 	at.data_type = json_string_value(t);
