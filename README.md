@@ -14,3 +14,11 @@ Current status:
 # Dependencies
 
 - [jansson](https://github.com/akheron/jansson), a C library for encoding, decoding and manipulating JSON data
+
+# Benchmarks
+
+- number of policies: m
+- number of attributes / operations per policy: n
+
+- m=2000 n=100, elapased time is 0.001493 (1.4 ms)
+
