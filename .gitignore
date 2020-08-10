@@ -1,5 +1,6 @@
 *.swp
 main
 tests
+test
 *.o
 2000-100.json

@@ -10,7 +10,8 @@ main: $(main_obj)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 test: $(test_obj)
-	$(CC) -o $@ $^ $(LDFLAGS) && ./test
+	$(CC) -o $@ $^ $(LDFLAGS) 
+	test -f ./test && ./test
 
 .PHONY: clean
 clean:

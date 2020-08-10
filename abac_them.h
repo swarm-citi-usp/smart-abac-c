@@ -1,10 +1,23 @@
 #ifndef ABAC_THEM_H
 #define ABAC_THEM_H
 
+enum abac_types {integer, real, integer_range, real_range, string, dictionary};
+
 struct range {
 	float min;
 	float max;
 } range;
+
+struct range_v2 {
+	union {
+		float real_min;
+		int integer_min;
+	};
+	union {
+		float real_max;
+		int integer_max;
+	};
+} range_v2;
 
 typedef struct attr {
 	const char *data_type;
@@ -15,6 +28,21 @@ typedef struct attr {
 		struct range ran;
 	};
 } attr;
+
+typedef struct attr_v2 {
+	enum abac_types data_type;
+	const char *name;
+	size_t inner_list_len; // used for either strings or inner_attrs
+	union {
+		const char *string;
+		char **strings;
+		int integer;
+		float real;
+		struct range_v2 ran;
+		struct attr_v2 **inner_attrs;
+	};
+} attr_v2;
+
 
 typedef struct policy {
 	struct attr *user_attrs;
@@ -55,5 +83,14 @@ int authorize(request req, struct policy *ps, size_t ps_len);
 request new_request(size_t ua_len, size_t oa_len, size_t ca_len, size_t op_len);
 req_attr new_attr_str(char *name, char *value);
 req_attr new_attr_num(char *name, float num);
+
+attr_v2 new_attr_integer(char *name, int value);
+attr_v2 new_attr_real(char *name, float value);
+attr_v2 new_attr_integer_range(char *name, int min, int max);
+attr_v2 new_attr_real_range(char *name, float min, float max);
+attr_v2 new_attr_string(char *name, char *value);
+attr_v2 new_attr_dictionary(char *name, attr_v2 **value, size_t len);
+attr_v2 **new_attr_list(size_t len);
+void show_attr_v2(attr_v2 at);
 
 #endif

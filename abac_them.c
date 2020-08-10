@@ -127,3 +127,96 @@ req_attr new_attr_num(char *name, float num)
 	return at;
 }
 
+// create attrs_v2
+
+attr_v2 new_attr_integer(char *name, int value)
+{
+	attr_v2 at;
+	at.data_type = integer;
+	at.name = name;
+	at.integer = value;
+	return at;
+}
+
+attr_v2 new_attr_real(char *name, float value)
+{
+	attr_v2 at;
+	at.data_type = real;
+	at.name = name;
+	at.real = value;
+	return at;
+}
+
+attr_v2 new_attr_integer_range(char *name, int min, int max)
+{
+	attr_v2 at;
+	at.data_type = integer_range;
+	at.name = name;
+	at.ran.integer_min = min;
+	at.ran.integer_max = max;
+	return at;
+}
+
+attr_v2 new_attr_real_range(char *name, float min, float max)
+{
+	attr_v2 at;
+	at.data_type = real_range;
+	at.name = name;
+	at.ran.real_min = min;
+	at.ran.real_max = max;
+	return at;
+}
+
+attr_v2 new_attr_string(char *name, char *value)
+{
+	attr_v2 at;
+	at.data_type = string;
+	at.name = name;
+	at.string = value;
+	return at;
+}
+
+attr_v2 **new_attr_list(size_t len)
+{
+	attr_v2 **list = malloc(sizeof(attr_v2 *) * len);
+	return list;
+}
+
+attr_v2 new_attr_dictionary(char *name, attr_v2 **value, size_t len)
+{
+	attr_v2 at;
+	at.data_type = dictionary;
+	at.name = name;
+	at.inner_list_len = len;
+	at.inner_attrs = value;
+	return at;
+}
+
+// debug attrs_v2
+void show_attr_v2(attr_v2 at)
+{
+	switch(at.data_type) {
+	case integer:
+		printf("%s: %d\n", at.name, at.integer);
+		break;
+	case real:
+		printf("%s: %.2f\n", at.name, at.real);
+		break;
+	case integer_range:
+		printf("%s: %d..%d\n", at.name, at.ran.integer_min, at.ran.integer_max);
+		break;
+	case real_range:
+		printf("%s: %.2f..%.2f\n", at.name, at.ran.real_min, at.ran.real_max);
+		break;
+	case string:
+		printf("%s: %s\n", at.name, at.string);
+		break;
+	case dictionary:
+		printf("\n%s:\n", at.name);
+		int i = 0;
+		for (i = 0; i < at.inner_list_len; i++)
+			show_attr_v2(*(at.inner_attrs[i]));
+		printf("\n");
+		break;
+	}
+}
