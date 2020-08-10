@@ -127,7 +127,7 @@ req_attr new_attr_num(char *name, float num)
 	return at;
 }
 
-// create attrs_v2
+// create v2
 
 attr_v2 new_attr_integer(char *name, int value)
 {
@@ -176,13 +176,8 @@ attr_v2 new_attr_string(char *name, char *value)
 	return at;
 }
 
-attr_v2 **new_attr_list(size_t len)
-{
-	attr_v2 **list = malloc(sizeof(attr_v2 *) * len);
-	return list;
-}
-
 attr_v2 new_attr_dictionary(char *name, attr_v2 **value, size_t len)
+// attr_v2 new_attr_dictionary(char *name, attr_v2 *value, size_t len)
 {
 	attr_v2 at;
 	at.data_type = dictionary;
@@ -192,7 +187,21 @@ attr_v2 new_attr_dictionary(char *name, attr_v2 **value, size_t len)
 	return at;
 }
 
-// debug attrs_v2
+attr_v2 **new_attr_list(size_t len)
+// attr_v2 *new_attr_list(size_t len)
+{
+	attr_v2 **list = malloc(sizeof(attr_v2 *) * len);
+	// attr_v2 *list = malloc(sizeof(attr_v2) * len);
+	return list;
+}
+
+char **new_operations_list(size_t len)
+{
+	char **list = malloc(sizeof(char *) * len);
+	return list;
+}
+
+// debug v2
 void show_attr_v2(attr_v2 at)
 {
 	switch(at.data_type) {
@@ -212,11 +221,121 @@ void show_attr_v2(attr_v2 at)
 		printf("%s: %s\n", at.name, at.string);
 		break;
 	case dictionary:
-		printf("\n%s:\n", at.name);
+		printf("\n%s {%d}:\n", at.name, at.inner_list_len);
 		int i = 0;
 		for (i = 0; i < at.inner_list_len; i++)
 			show_attr_v2(*(at.inner_attrs[i]));
+			// show_attr_v2(at.inner_attrs[i]);
 		printf("\n");
 		break;
 	}
+}
+
+void show_operations(char **ops, size_t len)
+{
+	int i = 0;
+	for (int i = 0; i < len; i++)
+		printf("%s ", ops[i]);
+	printf("\n");
+}
+
+void show_rule(rule r, char *desc)
+{
+	int i = 0;
+	printf("\n>%s\n", desc);
+	printf("#users:\n");
+	for (int i = 0; i < r.users_len; i++)
+		show_attr_v2(*(r.users[i]));
+	printf("#objects:\n");
+	for (int i = 0; i < r.objects_len; i++)
+		show_attr_v2(*(r.objects[i]));
+	printf("#contexts:\n");
+	for (int i = 0; i < r.contexts_len; i++)
+		show_attr_v2(*(r.contexts[i]));
+	printf("#operations:\n");
+	show_operations(r.operations, r.operations_len);
+}
+
+// authorization
+
+int is_subset(char **ro, size_t ro_len, char **po, size_t po_len)
+{
+	int i, j;
+	for (i = 0; i < ro_len; i++) {
+		int ok = 0;
+		for (j = 0; j < po_len; j++)
+			if (strcmp(ro[i], po[j]) == 0)
+				ok = 1;
+		if (!ok)
+			return 0;
+	}
+	return 1;
+}
+
+int match_attr_v2(attr_v2 ra, attr_v2 pa)
+{
+	if (strcmp(ra.name, pa.name) != 0)
+		return 0;
+
+	switch(pa.data_type) {
+	case integer:
+		if (ra.integer == pa.integer)
+			return 1;
+		break;
+	case real:
+		if (ra.real == pa.real)
+			return 1;
+		break;
+	case integer_range:
+		if (ra.integer >= pa.ran.integer_min && ra.integer <= pa.ran.integer_max)
+			return 1;
+		break;
+	case real_range:
+		if (ra.real >= pa.ran.real_min && ra.real <= pa.ran.real_max)
+			return 1;
+		break;
+	case string:
+		if (strcmp(ra.string, pa.string) == 0)
+			return 1;
+		break;
+	case dictionary:
+		return match_attrs_v2(ra.inner_attrs, ra.inner_list_len, pa.inner_attrs, pa.inner_list_len);
+	}
+	return 0;
+}
+
+int match_attrs_v2(attr_v2 **ras, size_t ras_len, attr_v2 **pas, size_t pas_len)
+{
+	int i, j, any_r;
+	for (int i = 0; i < pas_len; i++)
+	{
+		any_r = 0;
+		for (int j = 0; j < ras_len; j++)
+			if (match_attr_v2(*(ras[i]), *(pas[i])))
+				any_r = 1;
+		if (!any_r)
+			return 0;
+	}
+	if (any_r)
+		return 1;
+	else
+		return 0;
+}
+
+int match_permission(rule r, rule perm)
+{
+	return 
+		is_subset(r.operations, r.operations_len, perm.operations, perm.operations_len) &&
+		match_attrs_v2(r.users, r.users_len, perm.users, perm.users_len) && 
+		match_attrs_v2(r.objects, r.objects_len, perm.objects, perm.objects_len) && 
+		match_attrs_v2(r.contexts, r.contexts_len, perm.contexts, perm.contexts_len);
+}
+
+int authorize_permissions(rule r, rule *perms, size_t len)
+{
+	int i;
+	for (int i = 0; i < len; i++)
+		if (match_permission(r, perms[i]))
+			return 1;
+	return 0;
 }
