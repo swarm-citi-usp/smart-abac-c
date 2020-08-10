@@ -3,8 +3,8 @@ test_src = $(filter-out main.c, $(wildcard *.c))
 main_obj = $(main_src:.c=.o)
 test_obj = $(test_src:.c=.o)
 
-CFLAGS = -g
-LDFLAGS = -ljansson
+CFLAGS = -g -Wall
+LDFLAGS =
 
 main: $(main_obj)
 	$(CC) -o $@ $^ $(LDFLAGS)
@@ -18,7 +18,5 @@ clean:
 	rm -f $(main_obj) main
 	rm -f $(test_obj) test
 
-
 run: clean main
 	./main
-

@@ -1,138 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef MBED_MAJOR_VERSION
+#include "mbed.h"
+#endif
+
+// definitions
 #include "abac_them.h"
 
-#define DEBUG 0
-
-#if DEBUG
-#include "util.h"
-#endif
-
-// req_ops \in p_ops
-int match_ops(char **req_ops, size_t req_ops_len, const char **p_ops, size_t p_ops_len)
-{
-	int i, j;
-	for (i = 0; i < req_ops_len; i++) {
-		int ok = 0;
-		for (j = 0; j < p_ops_len; j++) {
-			if (strcmp(req_ops[i], p_ops[j]) == 0) {
-#if DEBUG
-				printf("match: %s = %s\n", req_ops[i], p_ops[j]);
-#endif
-				ok = 1;
-			}
-		}
-		if (!ok)
-			return 0;
-	}
-	return 1;
-}
-
-int match_attr(req_attr ra, attr pa)
-{
-	if (strcmp(ra.name, pa.name) != 0)
-		return 0;
-
-	if (strcmp(pa.data_type, "string") == 0) {
-		int i, ok = 0;
-		for (i = 0; i < ra.len; i++) {
-			if (strcmp(ra.strs[i], pa.str) == 0) {
-				return 1;
-			}
-		}
-	} else if (strcmp(pa.data_type, "number") == 0) {
-		return ra.num == pa.num;
-	} else if (strcmp(pa.data_type, "range") == 0) {
-		return pa.ran.min <= ra.num && ra.num <= pa.ran.max;
-	}
-	return 0;
-}
-
-int match_attrs(req_attr *r_attrs, size_t ra_len, attr *p_attrs, size_t pa_len)
-{
-	if (pa_len == 0)
-		return 1;
-
-	int i, j;
-	for (i = 0; i < ra_len; i++) {
-		int ok = 0;
-		for (j = 0; j < pa_len; j++) {
-			if (match_attr(r_attrs[i], p_attrs[j])) {
-#if DEBUG
-				printf("match: ");
-				print_req_attr(r_attrs[i], p_attrs[j].data_type);
-				printf(" = ");
-				print_attr(p_attrs[j]);
-				printf("\n");
-#endif
-				ok = 1;
-			}
-		}
-		if (!ok)
-			return 0;
-	}
-	return 1;
-}
-
-int authorize(request r, struct policy *ps, size_t ps_len)
-{
-	//print_policies(ps, ps_len);
-	int i, j;
-	for (i = 0; i < ps_len; i++) {
-		int ok =
-			match_ops(r.operations, r.operations_len, ps[i].operations, ps[i].operations_len) &&
-			match_attrs(r.user_attrs, r.user_attrs_len, ps[i].user_attrs, ps[i].user_attrs_len) &&
-			match_attrs(r.object_attrs, r.object_attrs_len, ps[i].object_attrs, ps[i].object_attrs_len) &&
-			match_attrs(r.context_attrs, r.context_attrs_len, ps[i].context_attrs, ps[i].context_attrs_len);
-
-		if (ok)
-			return 1;
-	}
-	return 0;
-}
-
-// create requests
-
-request new_request(size_t ua_len, size_t oa_len, size_t ca_len, size_t op_len)
-{
-	request r;
-	r.user_attrs_len = ua_len;
-	r.user_attrs = malloc(sizeof(req_attr) * r.user_attrs_len);
-	r.object_attrs_len = oa_len;
-	r.object_attrs = malloc(sizeof(req_attr) * r.object_attrs_len);
-	r.context_attrs_len = ca_len;
-	r.context_attrs = malloc(sizeof(req_attr) * r.context_attrs_len);
-	r.operations_len = 1;
-	r.operations = malloc(sizeof(char *) * r.operations_len);
-
-	return r;
-}
-
-req_attr new_attr_str(char *name, char *value)
-{
-	req_attr at;
-	at.name = name;
-	at.len = 1;
-	at.strs = malloc(sizeof(char *) * at.len);
-	at.strs[0] = value;
-	return at;
-}
-
-req_attr new_attr_num(char *name, float num)
-{
-	req_attr at;
-	at.name = name;
-	at.num = num;
-	return at;
-}
-
-// create v2
+// constructors
 
 attr_v2 new_attr_integer(char *name, int value)
 {
 	attr_v2 at;
-	at.data_type = integer;
+	at.data_type = abac_integer;
 	at.name = name;
 	at.integer = value;
 	return at;
@@ -141,7 +23,7 @@ attr_v2 new_attr_integer(char *name, int value)
 attr_v2 new_attr_real(char *name, float value)
 {
 	attr_v2 at;
-	at.data_type = real;
+	at.data_type = abac_real;
 	at.name = name;
 	at.real = value;
 	return at;
@@ -150,7 +32,7 @@ attr_v2 new_attr_real(char *name, float value)
 attr_v2 new_attr_integer_range(char *name, int min, int max)
 {
 	attr_v2 at;
-	at.data_type = integer_range;
+	at.data_type = abac_integer_range;
 	at.name = name;
 	at.ran.integer_min = min;
 	at.ran.integer_max = max;
@@ -160,7 +42,7 @@ attr_v2 new_attr_integer_range(char *name, int min, int max)
 attr_v2 new_attr_real_range(char *name, float min, float max)
 {
 	attr_v2 at;
-	at.data_type = real_range;
+	at.data_type = abac_real_range;
 	at.name = name;
 	at.ran.real_min = min;
 	at.ran.real_max = max;
@@ -170,17 +52,16 @@ attr_v2 new_attr_real_range(char *name, float min, float max)
 attr_v2 new_attr_string(char *name, char *value)
 {
 	attr_v2 at;
-	at.data_type = string;
+	at.data_type = abac_string;
 	at.name = name;
 	at.string = value;
 	return at;
 }
 
 attr_v2 new_attr_dictionary(char *name, attr_v2 **value, size_t len)
-// attr_v2 new_attr_dictionary(char *name, attr_v2 *value, size_t len)
 {
 	attr_v2 at;
-	at.data_type = dictionary;
+	at.data_type = abac_dictionary;
 	at.name = name;
 	at.inner_list_len = len;
 	at.inner_attrs = value;
@@ -188,44 +69,41 @@ attr_v2 new_attr_dictionary(char *name, attr_v2 **value, size_t len)
 }
 
 attr_v2 **new_attr_list(size_t len)
-// attr_v2 *new_attr_list(size_t len)
 {
-	attr_v2 **list = malloc(sizeof(attr_v2 *) * len);
-	// attr_v2 *list = malloc(sizeof(attr_v2) * len);
+	attr_v2 **list = (attr_v2**) malloc(sizeof(attr_v2 *) * len);
 	return list;
 }
 
 char **new_operations_list(size_t len)
 {
-	char **list = malloc(sizeof(char *) * len);
+	char **list = (char**) malloc(sizeof(char *) * len);
 	return list;
 }
 
-// debug v2
+// debug
+
 void show_attr_v2(attr_v2 at)
 {
 	switch(at.data_type) {
-	case integer:
+	case abac_integer:
 		printf("%s: %d\n", at.name, at.integer);
 		break;
-	case real:
+	case abac_real:
 		printf("%s: %.2f\n", at.name, at.real);
 		break;
-	case integer_range:
+	case abac_integer_range:
 		printf("%s: %d..%d\n", at.name, at.ran.integer_min, at.ran.integer_max);
 		break;
-	case real_range:
+	case abac_real_range:
 		printf("%s: %.2f..%.2f\n", at.name, at.ran.real_min, at.ran.real_max);
 		break;
-	case string:
+	case abac_string:
 		printf("%s: %s\n", at.name, at.string);
 		break;
-	case dictionary:
-		printf("\n%s {%d}:\n", at.name, at.inner_list_len);
-		int i = 0;
-		for (i = 0; i < at.inner_list_len; i++)
+	case abac_dictionary:
+		printf("\n%s {%zu}:\n", at.name, at.inner_list_len);
+		for (int i = 0; i < at.inner_list_len; i++)
 			show_attr_v2(*(at.inner_attrs[i]));
-			// show_attr_v2(at.inner_attrs[i]);
 		printf("\n");
 		break;
 	}
@@ -233,7 +111,6 @@ void show_attr_v2(attr_v2 at)
 
 void show_operations(char **ops, size_t len)
 {
-	int i = 0;
 	for (int i = 0; i < len; i++)
 		printf("%s ", ops[i]);
 	printf("\n");
@@ -241,7 +118,6 @@ void show_operations(char **ops, size_t len)
 
 void show_rule(rule r, char *desc)
 {
-	int i = 0;
 	printf("\n>%s\n", desc);
 	printf("#users:\n");
 	for (int i = 0; i < r.users_len; i++)
@@ -260,10 +136,9 @@ void show_rule(rule r, char *desc)
 
 int is_subset(char **ro, size_t ro_len, char **po, size_t po_len)
 {
-	int i, j;
-	for (i = 0; i < ro_len; i++) {
+	for (int i = 0; i < ro_len; i++) {
 		int ok = 0;
-		for (j = 0; j < po_len; j++)
+		for (int j = 0; j < po_len; j++)
 			if (strcmp(ro[i], po[j]) == 0)
 				ok = 1;
 		if (!ok)
@@ -278,27 +153,27 @@ int match_attr_v2(attr_v2 ra, attr_v2 pa)
 		return 0;
 
 	switch(pa.data_type) {
-	case integer:
+	case abac_integer:
 		if (ra.integer == pa.integer)
 			return 1;
 		break;
-	case real:
+	case abac_real:
 		if (ra.real == pa.real)
 			return 1;
 		break;
-	case integer_range:
+	case abac_integer_range:
 		if (ra.integer >= pa.ran.integer_min && ra.integer <= pa.ran.integer_max)
 			return 1;
 		break;
-	case real_range:
+	case abac_real_range:
 		if (ra.real >= pa.ran.real_min && ra.real <= pa.ran.real_max)
 			return 1;
 		break;
-	case string:
+	case abac_string:
 		if (strcmp(ra.string, pa.string) == 0)
 			return 1;
 		break;
-	case dictionary:
+	case abac_dictionary:
 		return match_attrs_v2(ra.inner_attrs, ra.inner_list_len, pa.inner_attrs, pa.inner_list_len);
 	}
 	return 0;
@@ -306,7 +181,7 @@ int match_attr_v2(attr_v2 ra, attr_v2 pa)
 
 int match_attrs_v2(attr_v2 **ras, size_t ras_len, attr_v2 **pas, size_t pas_len)
 {
-	int i, j, any_r;
+	int any_r;
 	for (int i = 0; i < pas_len; i++)
 	{
 		any_r = 0;
@@ -333,7 +208,6 @@ int match_permission(rule r, rule perm)
 
 int authorize_permissions(rule r, rule *perms, size_t len)
 {
-	int i;
 	for (int i = 0; i < len; i++)
 		if (match_permission(r, perms[i]))
 			return 1;
