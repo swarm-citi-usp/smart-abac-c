@@ -63,4 +63,6 @@ int match_permission(rule r, rule perm);
 int authorize_permissions(rule r, rule *perms, size_t len);
 int is_subset(char **ro, size_t ro_len, char **po, size_t po_len);
 
+void init_attr_list(attr_v2 **at, size_t *at_len, size_t len); // FIXME
+
 #endif

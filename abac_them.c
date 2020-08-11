@@ -68,6 +68,13 @@ attr_v2 new_attr_dictionary(char *name, attr_v2 **value, size_t len)
 	return at;
 }
 
+// FIXME
+void init_attr_list(attr_v2 **at, size_t *at_len, size_t len)
+{
+	at = (attr_v2**) malloc(sizeof(attr_v2 *) * len);
+	*at_len = len;
+}
+
 attr_v2 **new_attr_list(size_t len)
 {
 	attr_v2 **list = (attr_v2**) malloc(sizeof(attr_v2 *) * len);
@@ -101,10 +108,10 @@ void show_attr_v2(attr_v2 at)
 		printf("%s: %s\n", at.name, at.string);
 		break;
 	case abac_dictionary:
-		printf("\n%s {%zu}:\n", at.name, at.inner_list_len);
+		printf("[%s:\n", at.name);
 		for (int i = 0; i < at.inner_list_len; i++)
 			show_attr_v2(*(at.inner_attrs[i]));
-		printf("\n");
+		printf("]\n");
 		break;
 	}
 }
