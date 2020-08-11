@@ -8,8 +8,8 @@ void _test_paper();
 
 int main()
 {
-	// _test_v2();
-	_test_paper();
+	_test_v2();
+	// _test_paper();
 }
 
 void _test_paper()
@@ -200,6 +200,35 @@ void _test_paper()
 
 	if (authorize_permissions(req, perms, 6))
 		printf("\nauthorized crafted request for policy #3\n");
+
+	int runs = 1000;
+#ifdef MBED_MAJOR_VERSION
+	Timer t;
+	t.start();
+	for (int i = 0; i < runs; i++)
+		authorize_permissions(req, perms, 6);
+    t.stop();
+    pc.printf("The time taken to authorize 1 request against 6 policies, %d times, was %f seconds\n", runs, t.read());
+#elif defined(ESP32)
+    unsigned long startTime = millis();
+	for (int i = 0; i < runs; i++)
+		authorize_permissions(req, perms, 6);
+    unsigned long endTime = millis();
+    Serial.print("The time taken to authorize 1 request against 6 policies, ");
+    Serial.print(runs);
+    Serial.print(" times, was ");
+    Serial.print(endTime - startTime);
+    Serial.println(" milliseconds");
+#elif defined(__unix__)
+	#include <time.h>
+	clock_t t;
+	t = clock();
+	for (int i = 0; i < runs; i++)
+		authorize_permissions(req, perms, 6);
+	t = clock() - t;
+	double elapsed = ((double) t) / CLOCKS_PER_SEC;
+	printf("The time taken to authorize 1 request against 6 policies, %d times, was %f seconds\n", runs, elapsed);
+#endif
 }
 
 void _test_v2()
@@ -295,8 +324,61 @@ void _test_v2()
 	rule *perms = (rule *) malloc(sizeof(rule) * 1);
 	perms[0] = perm;
 	if (!authorize_permissions(req, perms, 1))
-		printf("fail authorize_permission 1\n");
+		printf("fail authorize_permissions 1\n");
 	req.operations[0] = "wrong";
 	if (authorize_permissions(req, perms, 1))
-		printf("fail authorize_permission 1 wrong\n");
+		printf("fail authorize_permissions 1 wrong\n");
+
+	// manually expand attribute
+	attr_v2 k_v = new_attr_string("k", "v");
+	show_attr_v2(k_v);
+	k_v.inner_list_len = 2;
+	k_v.data_type = abac_string_list;
+	k_v.string_list = malloc(sizeof(char *) * 2);
+	k_v.string_list[0] = "v0";
+	k_v.string_list[1] = "v1";
+	show_attr_v2(k_v);
+
+	// creating a graph
+
+	node n_child = new_graph_node("child");
+	node n_father = new_graph_node("father");
+	node n_mother = new_graph_node("mother");
+	node n_adultFamilyMember = new_graph_node("adultFamilyMember");
+	node n_family_member = new_graph_node("familyMember");
+	node n_person = new_graph_node("person");
+
+	create_directed_edge(&n_child, &n_family_member);
+	create_directed_edge(&n_father, &n_adultFamilyMember);
+	create_directed_edge(&n_mother, &n_adultFamilyMember);
+	create_directed_edge(&n_adultFamilyMember, &n_family_member);
+	create_directed_edge(&n_family_member, &n_person);
+
+	graph g = new_graph(6);
+	g.list[0] = &n_child;
+	g.list[1] = &n_father;
+	g.list[2] = &n_mother;
+	g.list[3] = &n_adultFamilyMember;
+	g.list[4] = &n_family_member;
+	g.list[5] = &n_person;
+	printf("%s == %s\n", g.list[4]->value, n_family_member.value);
+
+	size_t v_len;
+	node *visited = find_ancestors_dfs(g, n_father, &v_len);
+	if (v_len != 4)
+		printf("fail find_ancestors_dfs\n");
+
+	attr_v2 role_familyMember = new_attr_string("role", "familyMember");
+	attr_v2 role_mother = new_attr_string("role", "mother");
+	req.operations[0] = "read";
+	req.users[0] = &role_mother;
+	perm.users[0] = &role_familyMember;
+	show_rule(perms[0], "perm updated");
+	show_rule(req, "req for expansion");
+
+	expand_attrs(&req, g);
+	show_rule(req, "req after expansion");
+
+	if (authorize_permissions_expand(req, perms, 1, g))
+		printf("fail authorize_permissions_expand 1\n");
 }
