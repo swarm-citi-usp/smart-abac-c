@@ -65,7 +65,7 @@ attr_v2 new_attr_string_list(char *name, size_t len)
 	at.data_type = abac_string_list;
 	at.name = name;
 	at.inner_list_len = len;
-	at.string_list = malloc(sizeof(char *) * len);
+	at.string_list = (char **) malloc(sizeof(char *) * len);
 	return at;
 }
 
@@ -110,11 +110,11 @@ graph new_graph(size_t len)
 {
 	graph g;
 	g.len = len;
-	g.list = malloc(sizeof(node *) * len);
+	g.list = (node **) malloc(sizeof(node *) * len);
 	return g;
 }
 
-int is_in(node k, node *list, size_t v_len)
+int is_node_in(node k, node *list, size_t v_len)
 {
 	for (int i = 0; i < v_len; ++i)
 		if (strcmp(k.value, list[i].value) == 0)
@@ -132,14 +132,14 @@ void print_node_list(node *list, size_t len, char *desc)
 
 node *find_ancestors_dfs(graph g, node n, size_t *v_len)
 {
-	node *visited = malloc(sizeof(node) * g.len); // allocate max number of nodes for simplicity
-	node **stack = malloc(sizeof(node *) * g.len);
+	node *visited = (node *) malloc(sizeof(node) * g.len); // allocate max number of nodes for simplicity
+	node **stack = (node **) malloc(sizeof(node *) * g.len);
 	node k;
 	size_t s_head = 0, the_len = 0;
 	stack[s_head++] = &n;
 	while (s_head > 0) {
 		k = *stack[--s_head];
-		if (!is_in(k, visited, the_len)) {
+		if (!is_node_in(k, visited, the_len)) {
 			visited[the_len++] = k;
 			// walk over k.next and add to stack
 			while (k.next) {
@@ -153,28 +153,40 @@ node *find_ancestors_dfs(graph g, node n, size_t *v_len)
 	return visited;
 }
 
-void expand_attrs(rule *req, graph g)
+node *find_in_graph(attr_v2 *at, graph g)
 {
+	for (int j = 0; j < g.len; ++j)
+		if (strcmp(at->string, g.list[j]->value) == 0)
+			return g.list[j];
+	return NULL;
+}
+
+void expand_attr(attr_v2 **at_orig, graph g)
+{
+	if ((*at_orig)->data_type != abac_string)
+		return;
 	size_t v_len = 0;
 	node *n;
+	n = find_in_graph(*at_orig, g);
+	if (n == NULL)
+		return;
+	node *visited = find_ancestors_dfs(g, *n, &v_len);
+	attr_v2 *at = (attr_v2 *) malloc(sizeof(attr_v2));
+	*at = new_attr_string_list((*at_orig)->name, v_len);
+	for (int j = 0; j < v_len; ++j)
+		at->string_list[j] = visited[j].value;
+
+	*at_orig = at;
+}
+
+void expand_attrs(rule *req, graph g)
+{
 	for (int i = 0; i < req->users_len; ++i)
-	{
-		n = NULL;
-		for (int j = 0; j < g.len; ++j)
-			if (strcmp(req->users[i]->string, g.list[j]->value) == 0)
-				n = g.list[j];
-		if (n == NULL)
-			continue;
-		node *visited = find_ancestors_dfs(g, *n, &v_len);
-		// show_visited(visited, v_len);
-
-		attr_v2 *at = malloc(sizeof(attr_v2));
-		*at = new_attr_string_list(req->users[i]->name, v_len);
-		for (int j = 0; j < v_len; ++j)
-			at->string_list[j] = visited[j].value;
-
-		req->users[i] = at;
-	}
+		expand_attr(&req->users[i], g);
+	for (int i = 0; i < req->objects_len; ++i)
+		expand_attr(&req->objects[i], g);
+	for (int i = 0; i < req->contexts_len; ++i)
+		expand_attr(&req->contexts[i], g);
 }
 
 // authorization
@@ -190,6 +202,14 @@ int is_subset(char **ro, size_t ro_len, char **po, size_t po_len)
 			return 0;
 	}
 	return 1;
+}
+
+int is_string_in(char *a, char **b, size_t b_len)
+{
+	for (int i = 0; i < b_len; ++i)
+		if (strcmp(a, b[i]) == 0)
+			return 1;
+	return 0;
 }
 
 int match_attr_v2(attr_v2 ra, attr_v2 pa)
@@ -215,7 +235,9 @@ int match_attr_v2(attr_v2 ra, attr_v2 pa)
 			return 1;
 		break;
 	case abac_string:
-		if (strcmp(ra.string, pa.string) == 0)
+		if (ra.data_type == abac_string && strcmp(ra.string, pa.string) == 0)
+			return 1;
+		else if (ra.data_type == abac_string_list && is_string_in(pa.string, ra.string_list, ra.inner_list_len))
 			return 1;
 		break;
 	case abac_dictionary:

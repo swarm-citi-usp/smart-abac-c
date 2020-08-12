@@ -8,8 +8,8 @@ void _test_paper();
 
 int main()
 {
-	_test_v2();
-	// _test_paper();
+	// _test_v2();
+	_test_paper();
 }
 
 void _test_paper()
@@ -199,20 +199,81 @@ void _test_paper()
 	show_rule(req, "request\0");
 
 	if (authorize_permissions(req, perms, 6))
-		printf("\nauthorized crafted request for policy #3\n");
+		printf("\nauthorized request for policy #3\n");
 
-	int runs = 1000;
+	// creating a graph
+
+	node n_child = new_graph_node("child");
+	node n_father = new_graph_node("father");
+	node n_mother = new_graph_node("mother");
+	node n_adultFamilyMember = new_graph_node("adultFamilyMember");
+	node n_family_member = new_graph_node("familyMember");
+	node n_person = new_graph_node("person");
+	create_directed_edge(&n_child, &n_family_member);
+	create_directed_edge(&n_father, &n_adultFamilyMember);
+	create_directed_edge(&n_mother, &n_adultFamilyMember);
+	create_directed_edge(&n_adultFamilyMember, &n_family_member);
+	create_directed_edge(&n_family_member, &n_person);
+
+	node n_securityCamera = new_graph_node("securityCamera");
+	node n_intrusionAlarm = new_graph_node("intrusionAlarm");
+	node n_securityAppliance = new_graph_node("securityAppliance");
+	create_directed_edge(&n_securityCamera, &n_securityAppliance);
+	create_directed_edge(&n_intrusionAlarm, &n_securityAppliance);
+
+	graph g = new_graph(6+3);
+	g.list[0] = &n_child;
+	g.list[1] = &n_father;
+	g.list[2] = &n_mother;
+	g.list[3] = &n_adultFamilyMember;
+	g.list[4] = &n_family_member;
+	g.list[5] = &n_person;
+	g.list[6] = &n_securityCamera;
+	g.list[7] = &n_intrusionAlarm;
+	g.list[8] = &n_securityAppliance;
+
+	// a request to expand
+	rule req_e;
+	req_e.users = new_attr_list(2);
+	req_e.users_len = 2;
+	attr_v2 age_25 = new_attr_integer("age", 25);
+	req_e.users[0] = &age_25;
+	req_e.users[1] = &household_with_id;
+
+	req_e.objects = new_attr_list(2);
+	req_e.objects_len = 2;
+	req_e.objects[0] = &type_camera;
+	req_e.objects[1] = &household_with_id;
+
+	req_e.contexts_len = 0;
+
+	req_e.operations = new_operations_list(1);
+	req_e.operations_len = 1;
+	req_e.operations[0] = "read";
+	show_rule(req_e, "request that will be expanded\0");
+
+	if (!authorize_permissions(req_e, perms, 6))
+		printf("\ndenied non-expanded request for policy #2\n");
+	if (authorize_permissions_expand(req_e, perms, 6, g))
+		printf("\nauthorized expanded request for policy #2\n\n");
+
+	// benchmark
+
+	int runs = 5000;
 #ifdef MBED_MAJOR_VERSION
 	Timer t;
 	t.start();
 	for (int i = 0; i < runs; i++)
-		authorize_permissions(req, perms, 6);
+		// authorize_permissions(req, perms, 6);
+		authorize_permissions_expand(req_e, perms, 6, g);
     t.stop();
     pc.printf("The time taken to authorize 1 request against 6 policies, %d times, was %f seconds\n", runs, t.read());
+    printf("The time taken to authorize 1 request against 6 policies, %d times, was %f seconds\n", runs, t.read());
 #elif defined(ESP32)
     unsigned long startTime = millis();
 	for (int i = 0; i < runs; i++)
-		authorize_permissions(req, perms, 6);
+		// authorize_permissions(req, perms, 6);
+		authorize_permissions_expand(req_e, perms, 6, g);
     unsigned long endTime = millis();
     Serial.print("The time taken to authorize 1 request against 6 policies, ");
     Serial.print(runs);
@@ -224,7 +285,8 @@ void _test_paper()
 	clock_t t;
 	t = clock();
 	for (int i = 0; i < runs; i++)
-		authorize_permissions(req, perms, 6);
+		// authorize_permissions(req, perms, 6);
+		authorize_permissions_expand(req_e, perms, 6, g);
 	t = clock() - t;
 	double elapsed = ((double) t) / CLOCKS_PER_SEC;
 	printf("The time taken to authorize 1 request against 6 policies, %d times, was %f seconds\n", runs, elapsed);
@@ -334,7 +396,7 @@ void _test_v2()
 	show_attr_v2(k_v);
 	k_v.inner_list_len = 2;
 	k_v.data_type = abac_string_list;
-	k_v.string_list = malloc(sizeof(char *) * 2);
+	k_v.string_list = (char **) malloc(sizeof(char *) * 2);
 	k_v.string_list[0] = "v0";
 	k_v.string_list[1] = "v1";
 	show_attr_v2(k_v);
@@ -379,6 +441,10 @@ void _test_v2()
 	expand_attrs(&req, g);
 	show_rule(req, "req after expansion");
 
-	if (authorize_permissions_expand(req, perms, 1, g))
+	if (!authorize_permissions_expand(req, perms, 1, g))
 		printf("fail authorize_permissions_expand 1\n");
+
+	req.users[0] = &id_alice;
+	if (authorize_permissions_expand(req, perms, 1, g))
+		printf("fail authorize_permissions_expand 2\n");
 }
