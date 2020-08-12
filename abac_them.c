@@ -64,6 +64,7 @@ attr_v2 new_attr_string_list(char *name, size_t len)
 	attr_v2 at;
 	at.data_type = abac_string_list;
 	at.name = name;
+	at.inner_list_len = len;
 	at.string_list = malloc(sizeof(char *) * len);
 	return at;
 }
@@ -155,23 +156,25 @@ node *find_ancestors_dfs(graph g, node n, size_t *v_len)
 void expand_attrs(rule *req, graph g)
 {
 	size_t v_len = 0;
-	node n;
+	node *n;
 	for (int i = 0; i < req->users_len; ++i)
 	{
+		n = NULL;
 		for (int j = 0; j < g.len; ++j)
 			if (strcmp(req->users[i]->string, g.list[j]->value) == 0)
-				n = *g.list[j];
-		node *visited = find_ancestors_dfs(g, n, &v_len);
-		show_visited(visited, v_len);
-		req->users[i]->inner_list_len = v_len;
-		req->users[i]->data_type = abac_string_list;
+				n = g.list[j];
+		if (n == NULL)
+			continue;
+		node *visited = find_ancestors_dfs(g, *n, &v_len);
+		// show_visited(visited, v_len);
 
-		attr_v2 at = new_attr_string_list(req->users[i]->name, v_len);
-		for (int i = 0; i < v_len; ++i)
-			at.string_list[i] = visited[i].value;
-		req->users[i] = &at;
+		attr_v2 *at = malloc(sizeof(attr_v2));
+		*at = new_attr_string_list(req->users[i]->name, v_len);
+		for (int j = 0; j < v_len; ++j)
+			at->string_list[j] = visited[j].value;
+
+		req->users[i] = at;
 	}
-	printf("ok\n");
 }
 
 // authorization
@@ -327,8 +330,6 @@ void show_visited(node *visited, size_t v_len)
 {
 	printf("visited: ");
 	for (int i = 0; i < v_len; ++i)
-	{
 		printf("%s ", visited[i].value);
-	}
 	printf("\n");
 }
