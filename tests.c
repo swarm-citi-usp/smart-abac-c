@@ -66,7 +66,7 @@ void _test_paper()
 	perm1.operations[3] = "delete";
 	show_rule(perm1, "perm1\0");
 
-	// p2
+	// p2, authorizes req_e
 	rule perm2;
 	perm2.users = new_attr_list(2);
 	perm2.users_len = 2;
@@ -86,7 +86,7 @@ void _test_paper()
 	perm2.operations[1] = "update";
 	show_rule(perm2, "perm2\0");
 
-	// p3
+	// p3, authorizes req
 	rule perm3;
 	perm3.users = new_attr_list(1);
 	perm3.users_len = 1;
@@ -257,14 +257,21 @@ void _test_paper()
 	if (authorize_permissions_expand(req_e, perms, 6, g))
 		printf("\nauthorized expanded request for policy #2\n\n");
 
+	// many policies
+	int n_perms = 3000, median;
+	median = (int) (n_perms / 2);
+	rule *many_perms = (rule *) malloc(sizeof(rule) * n_perms);
+	for (int i = 0; i < n_perms; ++i)
+		many_perms[i] = perm5;
+	many_perms[median] = perm2;
+
 	// benchmark
 
-	int runs = 5000;
+	int runs = 3000;
 #ifdef MBED_MAJOR_VERSION
 	Timer t;
 	t.start();
 	for (int i = 0; i < runs; i++)
-		// authorize_permissions(req, perms, 6);
 		authorize_permissions_expand(req_e, perms, 6, g);
     t.stop();
     pc.printf("The time taken to authorize 1 request against 6 policies, %d times, was %f seconds\n", runs, t.read());
@@ -272,27 +279,46 @@ void _test_paper()
     pc.printf("The time taken to authorize 1 request against 6 policies, %d times, was %f ms\n", runs, t.read() * 1000);
     printf("The time taken to authorize 1 request against 6 policies, %d times, was %f ms\n", runs, t.read() * 1000);
 #elif defined(ESP32)
-    unsigned long startTime = millis();
+    unsigned long startTime, endTime;
+    startTime = millis();
 	for (int i = 0; i < runs; i++)
-		// authorize_permissions(req, perms, 6);
 		authorize_permissions_expand(req_e, perms, 6, g);
-    unsigned long endTime = millis();
+    endTime = millis();
     Serial.print("The time taken to authorize 1 request against 6 policies, ");
     Serial.print(runs);
     Serial.print(" times, was ");
     Serial.print(endTime - startTime);
-    Serial.println(" milliseconds");
+    Serial.println(" ms");
+
+    startTime = millis();
+	for (int i = 0; i < runs; i++)
+		authorize_permissions_expand(req_e, many_perms, 6, g);
+    endTime = millis();
+    Serial.print("The time taken to authorize 1 request against ");
+    Serial.print(n_perms);
+    Serial.print(" policies was ");
+    Serial.print(endTime - startTime);
+    Serial.println(" ms");
 #elif defined(__unix__)
 	#include <time.h>
 	clock_t t;
 	t = clock();
+	double elapsed;
 	for (int i = 0; i < runs; i++)
-		// authorize_permissions(req, perms, 6);
 		authorize_permissions_expand(req_e, perms, 6, g);
 	t = clock() - t;
-	double elapsed = ((double) t) / CLOCKS_PER_SEC;
+	elapsed = ((double) t) / CLOCKS_PER_SEC;
 	printf("The time taken to authorize 1 request against 6 policies, %d times, was %f ms\n", runs, elapsed * 1000);
+
+	t = clock();
+	for (int i = 0; i < runs; i++)
+		authorize_permissions_expand(req_e, many_perms, 6, g);
+	t = clock() - t;
+	elapsed = ((double) t) / CLOCKS_PER_SEC;
+	printf("The time taken to authorize 1 request against %d policies was %f ms\n", n_perms, elapsed * 1000);
 #endif
+
+	free(many_perms);
 }
 
 void _test_v2()

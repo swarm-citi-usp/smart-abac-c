@@ -3,7 +3,8 @@ test_src = $(filter-out main.c, $(wildcard *.c))
 main_obj = $(main_src:.c=.o)
 test_obj = $(test_src:.c=.o)
 
-CFLAGS = -g #-Wall
+# CFLAGS = -g #-Wall
+CFLAGS = -O3
 LDFLAGS =
 
 main: $(main_obj)
