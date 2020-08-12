@@ -269,6 +269,8 @@ void _test_paper()
     t.stop();
     pc.printf("The time taken to authorize 1 request against 6 policies, %d times, was %f seconds\n", runs, t.read());
     printf("The time taken to authorize 1 request against 6 policies, %d times, was %f seconds\n", runs, t.read());
+    pc.printf("The time taken to authorize 1 request against 6 policies, %d times, was %f ms\n", runs, t.read() * 1000);
+    printf("The time taken to authorize 1 request against 6 policies, %d times, was %f ms\n", runs, t.read() * 1000);
 #elif defined(ESP32)
     unsigned long startTime = millis();
 	for (int i = 0; i < runs; i++)
@@ -289,7 +291,7 @@ void _test_paper()
 		authorize_permissions_expand(req_e, perms, 6, g);
 	t = clock() - t;
 	double elapsed = ((double) t) / CLOCKS_PER_SEC;
-	printf("The time taken to authorize 1 request against 6 policies, %d times, was %f seconds\n", runs, elapsed);
+	printf("The time taken to authorize 1 request against 6 policies, %d times, was %f ms\n", runs, elapsed * 1000);
 #endif
 }
 

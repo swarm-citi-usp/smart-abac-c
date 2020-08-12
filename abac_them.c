@@ -10,7 +10,7 @@ Serial pc(P0_25, P0_8);
 // definitions
 #include "abac_them.h"
 
-// constructors
+// policy constructors
 
 attr_v2 new_attr_integer(char *name, int value)
 {
@@ -91,7 +91,7 @@ char **new_operations_list(size_t len)
 	return list;
 }
 
-// graph
+// graph constructors
 
 node new_graph_node(char *value)
 {
@@ -114,20 +114,14 @@ graph new_graph(size_t len)
 	return g;
 }
 
+// graph algorithms
+
 int is_node_in(node k, node *list, size_t v_len)
 {
 	for (int i = 0; i < v_len; ++i)
 		if (strcmp(k.value, list[i].value) == 0)
 			return 1;
 	return 0;
-}
-
-void print_node_list(node *list, size_t len, char *desc)
-{
-	printf("%s: ", desc);
-	for (int i = 0; i < len; ++i)
-		printf("%s ", list[i].value);
-	printf("\n");
 }
 
 node *find_ancestors_dfs(graph g, node n, size_t *v_len)
@@ -353,5 +347,13 @@ void show_visited(node *visited, size_t v_len)
 	printf("visited: ");
 	for (int i = 0; i < v_len; ++i)
 		printf("%s ", visited[i].value);
+	printf("\n");
+}
+
+void show_node_list(node *list, size_t len, char *desc)
+{
+	printf("%s: ", desc);
+	for (int i = 0; i < len; ++i)
+		printf("%s ", list[i].value);
 	printf("\n");
 }

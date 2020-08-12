@@ -39,30 +39,12 @@ typedef struct rule {
 	size_t operations_len;
 } rule;
 
-typedef struct policy_v2 {
-	char *id;
-	char *version;
-	char *name;
-	rule permissions;
-} policy_v2;
-
-attr_v2 new_attr_integer(char *name, int value);
-attr_v2 new_attr_real(char *name, float value);
-attr_v2 new_attr_integer_range(char *name, int min, int max);
-attr_v2 new_attr_real_range(char *name, float min, float max);
-attr_v2 new_attr_string(char *name, char *value);
-attr_v2 new_attr_string_list(char *name, size_t len);
-attr_v2 new_attr_dictionary(char *name, attr_v2 **value, size_t len);
-attr_v2 **new_attr_list(size_t len);
-char **new_operations_list(size_t len);
-void show_attr_v2(attr_v2 at);
-void show_operations(char **ops, size_t len);
-void show_rule(rule r, char *desc);
-int match_attrs_v2(attr_v2 **ras, size_t ras_len, attr_v2 **pas, size_t pas_len);
-int match_attr_v2(attr_v2 ra, attr_v2 pa);
-int match_permission(rule r, rule perm);
-int authorize_permissions(rule req, rule *perms, size_t len);
-int is_subset(char **ro, size_t ro_len, char **po, size_t po_len);
+// typedef struct policy_v2 {
+// 	char *id;
+// 	char *version;
+// 	char *name;
+// 	rule permissions;
+// } policy_v2;
 
 typedef struct node {
 	char *value;
@@ -74,15 +56,35 @@ typedef struct graph {
 	node **list;
 } graph;
 
+attr_v2 new_attr_integer(char *name, int value);
+attr_v2 new_attr_real(char *name, float value);
+attr_v2 new_attr_integer_range(char *name, int min, int max);
+attr_v2 new_attr_real_range(char *name, float min, float max);
+attr_v2 new_attr_string(char *name, char *value);
+attr_v2 new_attr_string_list(char *name, size_t len);
+attr_v2 new_attr_dictionary(char *name, attr_v2 **value, size_t len);
+attr_v2 **new_attr_list(size_t len);
+char **new_operations_list(size_t len);
+
+int match_attrs_v2(attr_v2 **ras, size_t ras_len, attr_v2 **pas, size_t pas_len);
+int match_attr_v2(attr_v2 ra, attr_v2 pa);
+int match_permission(rule r, rule perm);
+int authorize_permissions(rule req, rule *perms, size_t len);
+int is_subset(char **ro, size_t ro_len, char **po, size_t po_len);
+
+void show_attr_v2(attr_v2 at);
+void show_operations(char **ops, size_t len);
+void show_rule(rule r, char *desc);
+void show_node_list(node *list, size_t len, char *desc);
+void show_visited(node *visited, size_t v_len);
+
 node new_graph_node(char *value);
 void create_directed_edge(node *, node *);
 graph new_graph(size_t len);
 
-void print_node_list(node *list, size_t len, char *desc);
 node *find_ancestors_dfs(graph g, node n, size_t *len);
 int is_in(node k, node *list, size_t v_len);
 void expand_attrs(rule *, graph);
 int authorize_permissions_expand(rule req, rule *perms, size_t p_len, graph g);
-void show_visited(node *visited, size_t v_len);
 
 #endif
