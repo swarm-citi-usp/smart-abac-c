@@ -1,5 +1,5 @@
-#ifndef ABAC_THEM_H
-#define ABAC_THEM_H
+#ifndef SMART_ABAC_H
+#define SMART_ABAC_H
 
 enum abac_types {abac_integer, abac_real, abac_integer_range, abac_real_range, abac_string, abac_string_list, abac_dictionary};
 

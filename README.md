@@ -1,4 +1,4 @@
-A C implementation of the ABAC-them model.
+A C implementation of the SmartABAC model.
 
 Current status:
 
