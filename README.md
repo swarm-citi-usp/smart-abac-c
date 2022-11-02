@@ -1,4 +1,4 @@
-A C implementation of the SmartABAC model.
+A C implementation of the SmartABAC access control model. [See our paper here](https://ieeexplore.ieee.org/abstract/document/9528856). An Elixir version is [also available](https://github.com/swarm-citi-usp/smart-abac-elixir) (there are more usage examples in that version).
 
 Current status:
 
